@@ -264,5 +264,7 @@ footer {
 }
 .nits-result h3 { color: #003087; font-size: 1rem; margin-bottom: 0.5rem; }
 .nits-value { margin-bottom: 0.4rem; }
+.nits-number { font-size: 2rem; font-weight: 700; }
+.nits-unit { color: #666; font-size: 0.9rem; }
 .nits-level { font-size: 0.95rem; margin-bottom: 0.5rem; }
 .nits-formula { font-size: 0.78rem; color: #888; }

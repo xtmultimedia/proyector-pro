@@ -27,18 +27,26 @@ const ASPECT_RATIOS = {
   "16:10": 16 / 10
 };
 
+// Dimensiones máximas del rectángulo de pantalla dentro del viewBox SVG (300×200)
+const SVG_MAX_WIDTH  = 240;
+const SVG_MAX_HEIGHT = 150;
+
+// Factores de conversión de unidades
+const METERS_TO_FEET = 0.3048;
+const METERS_TO_INCHES = 0.0254;
+
 // ── Conversiones de unidad ────────────────────────────────────────────────────
 
 /** Convierte un valor de cualquier unidad a metros */
 function toMeters(value, unit) {
-  if (unit === "ft") return value * 0.3048;
-  if (unit === "in") return value * 0.0254;
+  if (unit === "ft") return value * METERS_TO_FEET;
+  if (unit === "in") return value * METERS_TO_INCHES;
   return value; // ya en metros
 }
 
 /** Formatea una distancia en metros con dos representaciones: m y ft */
 function formatDistances(meters) {
-  const ft = meters / 0.3048;
+  const ft = meters / METERS_TO_FEET;
   return `${meters.toFixed(2)} m  /  ${ft.toFixed(2)} ft`;
 }
 
@@ -136,9 +144,9 @@ function calcWidthFromDiagonal() {
   // Convertir ancho al sistema de unidades del campo de ancho
   let displayWidth;
   if (widthUnit === "ft") {
-    displayWidth = (widthM / 0.3048).toFixed(3);
+    displayWidth = (widthM / METERS_TO_FEET).toFixed(3);
   } else if (widthUnit === "in") {
-    displayWidth = (widthM / 0.0254).toFixed(2);
+    displayWidth = (widthM / METERS_TO_INCHES).toFixed(2);
   } else {
     displayWidth = widthM.toFixed(3);
   }
@@ -224,13 +232,12 @@ function updateScreenDiagram(widthM, heightM) {
   const stats   = document.getElementById('screenStats');
 
   // Calcular proporciones dentro del viewBox (300×200)
-  const maxW = 240, maxH = 150;
   const aspect = widthM / heightM;
   let svgW, svgH;
-  if (aspect >= maxW / maxH) {
-    svgW = maxW; svgH = maxW / aspect;
+  if (aspect >= SVG_MAX_WIDTH / SVG_MAX_HEIGHT) {
+    svgW = SVG_MAX_WIDTH; svgH = SVG_MAX_WIDTH / aspect;
   } else {
-    svgH = maxH; svgW = maxH * aspect;
+    svgH = SVG_MAX_HEIGHT; svgW = SVG_MAX_HEIGHT * aspect;
   }
   const x = (300 - svgW) / 2;
   const y = (170 - svgH) / 2;
@@ -242,9 +249,9 @@ function updateScreenDiagram(widthM, heightM) {
 
   // Etiquetas de dimensiones
   document.getElementById('widthLabel').textContent =
-    widthM.toFixed(2) + ' m  (' + (widthM / 0.3048).toFixed(1) + ' ft)';
+    widthM.toFixed(2) + ' m  (' + (widthM / METERS_TO_FEET).toFixed(1) + ' ft)';
   document.getElementById('heightLabel').textContent =
-    heightM.toFixed(2) + ' m  (' + (heightM / 0.3048).toFixed(1) + ' ft)';
+    heightM.toFixed(2) + ' m  (' + (heightM / METERS_TO_FEET).toFixed(1) + ' ft)';
 
   const area = (widthM * heightM).toFixed(2);
   stats.innerHTML = `
@@ -260,10 +267,13 @@ function updateScreenDiagram(widthM, heightM) {
 function updateNitsResult(nits, lumens, area) {
   const level = getBrightnessLevel(nits);
   const container = document.getElementById('nitsResult');
-  document.getElementById('nitsValue').innerHTML =
-    `<span style="color:${level.color}; font-size:2rem; font-weight:700">${Math.round(nits)} nits</span>` +
-    `<span style="color:#666; font-size:0.9rem"> (cd/m²)</span>`;
-  document.getElementById('nitsLevel').innerHTML =
+  const valueEl = document.getElementById('nitsValue');
+  const levelEl = document.getElementById('nitsLevel');
+
+  valueEl.innerHTML =
+    `<span class="nits-number" style="color:${level.color}">${Math.round(nits)} nits</span>` +
+    `<span class="nits-unit"> (cd/m²)</span>`;
+  levelEl.innerHTML =
     `<span style="color:${level.color}">${level.label}</span>`;
   container.style.display = 'block';
 }
