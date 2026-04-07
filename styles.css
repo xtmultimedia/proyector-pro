@@ -311,6 +311,11 @@ footer {
   border-radius: 8px;
 }
 
+.interactive-title {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+}
+
 .zoom-head {
   display: flex;
   align-items: center;
@@ -329,10 +334,22 @@ footer {
   color: #003087;
 }
 
+#distance-value {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #003087;
+}
+
 #zoom-slider {
   width: 100%;
   margin: 0;
   accent-color: #003087;
+}
+
+#distance-slider {
+  width: 100%;
+  margin: 0;
+  accent-color: #0ea5e9;
 }
 
 .zoom-hint {

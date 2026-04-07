@@ -37,12 +37,16 @@ const calculationState = {
   minDist: 0,
   maxDist: 0,
   isFixed: true,
+  distanceMin: 0,
+  distanceMax: 0,
+  aspectRatio: "16:9",
   widthRaw: 0,
   widthUnit: "m",
   lens: null,
   widthM: 0,
   heightM: 0,
-  baseLumens: 0
+  baseLumens: 0,
+  zoomPercent: 50
 };
 
 // ── Conversiones de unidad ────────────────────────────────────────────────────
@@ -52,6 +56,12 @@ function toMeters(value, unit) {
   if (unit === "ft") return value * METERS_TO_FEET;
   if (unit === "in") return value * METERS_TO_INCHES;
   return value; // ya en metros
+}
+
+function fromMeters(value, unit) {
+  if (unit === "ft") return value / METERS_TO_FEET;
+  if (unit === "in") return value / METERS_TO_INCHES;
+  return value;
 }
 
 /** Formatea una distancia en metros con dos representaciones: m y ft */
@@ -181,49 +191,75 @@ function getEffectiveDistance(minDist, maxDist, zoomPercent) {
   return minDist + ((zoomPercent / 100) * (maxDist - minDist));
 }
 
-function renderZoomState() {
+function getThrowFromZoom(lens, zoomPercent) {
+  if (!lens) return 0;
+  if (lens.min === lens.max) return lens.min;
+  return lens.min + ((zoomPercent / 100) * (lens.max - lens.min));
+}
+
+function renderZoomState(source = "zoom") {
   const slider = document.getElementById("zoom-slider");
+  const distanceSlider = document.getElementById("distance-slider");
+  const distanceValue = document.getElementById("distance-value");
   const zoomValue = document.getElementById("zoom-value");
   const zoomHint = document.getElementById("zoom-hint");
   const zoomOptical = document.getElementById("zoom-optical");
+  const widthInput = document.getElementById("width");
+  const widthUnitSelect = document.getElementById("unit");
   const resNote = document.getElementById("res-note");
 
-  if (!slider || !zoomValue || !zoomHint || !zoomOptical || !resNote || !calculationState.lens) return;
+  if (!slider || !distanceSlider || !distanceValue || !zoomValue || !zoomHint || !zoomOptical || !resNote || !widthInput || !widthUnitSelect || !calculationState.lens) return;
 
   let zoomPercent = parseInt(slider.value, 10);
   if (Number.isNaN(zoomPercent)) zoomPercent = 50;
 
-  let effectiveDist = getEffectiveDistance(calculationState.minDist, calculationState.maxDist, zoomPercent);
-  let normalized = calculationState.maxDist === calculationState.minDist
-    ? 0
-    : (effectiveDist - calculationState.minDist) / (calculationState.maxDist - calculationState.minDist);
+  let effectiveDist = parseFloat(distanceSlider.value);
+  if (Number.isNaN(effectiveDist)) {
+    effectiveDist = getEffectiveDistance(calculationState.distanceMin, calculationState.distanceMax, 50);
+  }
+
+  effectiveDist = Math.min(Math.max(effectiveDist, calculationState.distanceMin), calculationState.distanceMax);
+  if (source === "zoom") distanceSlider.value = effectiveDist.toFixed(2);
 
   if (calculationState.isFixed) {
     zoomPercent = 100;
     effectiveDist = calculationState.minDist;
-    normalized = 0;
+    distanceSlider.value = effectiveDist.toFixed(2);
   }
 
-  const effectiveThrow = calculationState.widthM > 0
-    ? effectiveDist / calculationState.widthM
-    : calculationState.lens.min;
+  const throwRatio = getThrowFromZoom(calculationState.lens, zoomPercent);
+  const widthM = throwRatio > 0 ? (effectiveDist / throwRatio) : calculationState.widthM;
+  const heightM = getScreenHeight(widthM, calculationState.aspectRatio);
+  const normalizedZoom = calculationState.isFixed ? 0 : (zoomPercent / 100);
+
+  const effectiveThrow = throwRatio;
   const zoomOpticalFactor = calculationState.lens.min > 0
     ? effectiveThrow / calculationState.lens.min
     : 1;
   const lumensDrop = 0.24; // Tele suele perder luminosidad respecto a Wide.
-  const effectiveLumens = calculationState.baseLumens * (1 - (lumensDrop * normalized));
-  const dynamicNits = calculateNits(effectiveLumens, calculationState.widthM, calculationState.heightM);
+  const effectiveLumens = calculationState.baseLumens * (1 - (lumensDrop * normalizedZoom));
+  const dynamicNits = calculateNits(effectiveLumens, widthM, heightM);
+
+  calculationState.widthM = widthM;
+  calculationState.heightM = heightM;
+  calculationState.zoomPercent = zoomPercent;
+
+  const widthUnit = widthUnitSelect.value;
+  const widthDisplay = fromMeters(widthM, widthUnit);
+  widthInput.value = widthDisplay.toFixed(widthUnit === "in" ? 2 : 3);
 
   zoomValue.textContent = `${zoomPercent}%`;
   zoomOptical.textContent = `${zoomOpticalFactor.toFixed(2)}x`;
+  distanceValue.textContent = `${effectiveDist.toFixed(2)} m`;
   zoomHint.textContent = calculationState.isFixed
     ? "Lente fijo: la distancia no varía con zoom."
-    : `Distancia efectiva: ${effectiveDist.toFixed(2)} m · Throw: ${effectiveThrow.toFixed(2)}:1`;
+    : `Distancia: ${effectiveDist.toFixed(2)} m · Throw: ${effectiveThrow.toFixed(2)}:1 · Ancho proyectado: ${widthM.toFixed(2)} m`;
 
   resNote.textContent =
-    `Pantalla: ${calculationState.widthRaw} ${calculationState.widthUnit} de ancho · Lente: ${calculationState.lens.model} (${calculationState.lens.min}${calculationState.isFixed ? "" : "–" + calculationState.lens.max}:1) · Zoom: ${zoomPercent}% · Lúmenes efectivos: ${Math.round(effectiveLumens)} lm`;
+    `Lente: ${calculationState.lens.model} (${calculationState.lens.min}${calculationState.isFixed ? "" : "–" + calculationState.lens.max}:1) · Zoom: ${zoomPercent}% · Lúmenes efectivos: ${Math.round(effectiveLumens)} lm`;
 
   updateDiagram(calculationState.minDist, calculationState.maxDist, calculationState.isFixed, effectiveDist);
+  updateScreenDiagram(widthM, heightM);
   updateNitsResult(dynamicNits, effectiveLumens, calculationState.baseLumens);
 }
 
@@ -299,14 +335,27 @@ function calculate() {
   }
 
   if (zoomControl && zoomSlider) {
+    const distanceSlider = document.getElementById("distance-slider");
     zoomControl.style.display = "block";
     zoomSlider.disabled = isFixed;
     zoomSlider.value = isFixed ? "100" : "50";
+
+    if (distanceSlider) {
+      distanceSlider.min = minDist.toFixed(2);
+      distanceSlider.max = maxDist.toFixed(2);
+      distanceSlider.disabled = isFixed;
+      distanceSlider.value = isFixed
+        ? minDist.toFixed(2)
+        : getEffectiveDistance(minDist, maxDist, 50).toFixed(2);
+    }
   }
 
   calculationState.minDist = minDist;
   calculationState.maxDist = maxDist;
   calculationState.isFixed = isFixed;
+  calculationState.distanceMin = minDist;
+  calculationState.distanceMax = maxDist;
+  calculationState.aspectRatio = aspectRatio;
   calculationState.widthRaw = widthRaw;
   calculationState.widthUnit = widthUnit;
   calculationState.lens = lens;
@@ -317,9 +366,7 @@ function calculate() {
   resNote.textContent = "";
 
   // Actualizar diagrama
-  renderZoomState();
-
-  updateScreenDiagram(widthM, heightM);
+  renderZoomState("calculate");
 }
 
 function setupEventListeners() {
@@ -328,7 +375,8 @@ function setupEventListeners() {
   document.getElementById("diagonal").addEventListener("input", calcWidthFromDiagonal);
   document.getElementById("diag-unit").addEventListener("change", calcWidthFromDiagonal);
   document.getElementById("aspect").addEventListener("change", calcWidthFromDiagonal);
-  document.getElementById("zoom-slider").addEventListener("input", renderZoomState);
+  document.getElementById("zoom-slider").addEventListener("input", () => renderZoomState("zoom"));
+  document.getElementById("distance-slider").addEventListener("input", () => renderZoomState("distance"));
   document.getElementById("btn-calculate").addEventListener("click", calculate);
 }
 
