@@ -33,12 +33,6 @@ const SVG_MAX_HEIGHT = 150;
 const METERS_TO_FEET = 0.3048;
 const METERS_TO_INCHES = 0.0254;
 
-const UNIT_META = {
-  m: { short: "m", area: "m²", decimals: 2 },
-  ft: { short: "ft", area: "ft²", decimals: 2 },
-  in: { short: "in", area: "in²", decimals: 1 }
-};
-
 const calculationState = {
   minDist: 0,
   maxDist: 0,
@@ -74,17 +68,6 @@ function fromMeters(value, unit) {
 function formatDistances(meters) {
   const ft = meters / METERS_TO_FEET;
   return `${meters.toFixed(2)} m  /  ${ft.toFixed(2)} ft`;
-}
-
-function formatLengthForUnit(meters, unit) {
-  const meta = UNIT_META[unit] || UNIT_META.m;
-  return `${fromMeters(meters, unit).toFixed(meta.decimals)} ${meta.short}`;
-}
-
-function convertAreaFromMeters(areaM2, unit) {
-  if (unit === "ft") return areaM2 / (METERS_TO_FEET * METERS_TO_FEET);
-  if (unit === "in") return areaM2 / (METERS_TO_INCHES * METERS_TO_INCHES);
-  return areaM2;
 }
 
 // ── Población dinámica de selectores ─────────────────────────────────────────
@@ -179,11 +162,11 @@ function calcWidthFromDiagonal() {
 // ── Diagrama SVG ──────────────────────────────────────────────────────────────
 
 /** Actualiza el diagrama SVG con la distancia calculada */
-function updateDiagram(minDist, maxDist, isFixed, effectiveDist, displayUnit) {
+function updateDiagram(minDist, maxDist, isFixed, effectiveDist) {
   const wrap = document.getElementById("diagram-wrap");
   wrap.style.display = "block";
 
-  const distLabel = formatLengthForUnit(effectiveDist, displayUnit);
+  const distLabel = `${effectiveDist.toFixed(2)} m`;
 
   const minX = 250;
   const maxX = 432;
@@ -267,16 +250,16 @@ function renderZoomState(source = "zoom") {
 
   zoomValue.textContent = `${zoomPercent}%`;
   zoomOptical.textContent = `${zoomOpticalFactor.toFixed(2)}x`;
-  distanceValue.textContent = formatLengthForUnit(effectiveDist, widthUnit);
+  distanceValue.textContent = `${effectiveDist.toFixed(2)} m`;
   zoomHint.textContent = calculationState.isFixed
     ? "Lente fijo: la distancia no varía con zoom."
-    : `Distancia: ${formatLengthForUnit(effectiveDist, widthUnit)} · Throw: ${effectiveThrow.toFixed(2)}:1 · Ancho proyectado: ${formatLengthForUnit(widthM, widthUnit)}`;
+    : `Distancia: ${effectiveDist.toFixed(2)} m · Throw: ${effectiveThrow.toFixed(2)}:1 · Ancho proyectado: ${widthM.toFixed(2)} m`;
 
   resNote.textContent =
     `Lente: ${calculationState.lens.model} (${calculationState.lens.min}${calculationState.isFixed ? "" : "–" + calculationState.lens.max}:1) · Zoom: ${zoomPercent}% · Lúmenes efectivos: ${Math.round(effectiveLumens)} lm`;
 
-  updateDiagram(calculationState.minDist, calculationState.maxDist, calculationState.isFixed, effectiveDist, widthUnit);
-  updateScreenDiagram(widthM, heightM, widthUnit);
+  updateDiagram(calculationState.minDist, calculationState.maxDist, calculationState.isFixed, effectiveDist);
+  updateScreenDiagram(widthM, heightM);
   updateNitsResult(dynamicNits, effectiveLumens, calculationState.baseLumens);
 }
 
@@ -343,11 +326,11 @@ function calculate() {
   const zoomSlider = document.getElementById("zoom-slider");
 
   if (isFixed) {
-    resMin.innerHTML  = `<span class="result-label">Distancia fija</span><span class="result-value">${formatLengthForUnit(minDist, widthUnit)}</span>`;
+    resMin.innerHTML  = `<span class="result-label">Distancia fija</span><span class="result-value">${formatDistances(minDist)}</span>`;
     resMax.style.display = "none";
   } else {
-    resMin.innerHTML  = `<span class="result-label">🔹 Distancia mínima</span><span class="result-value">${formatLengthForUnit(minDist, widthUnit)}</span>`;
-    resMax.innerHTML  = `<span class="result-label">🔸 Distancia máxima</span><span class="result-value">${formatLengthForUnit(maxDist, widthUnit)}</span>`;
+    resMin.innerHTML  = `<span class="result-label">🔹 Distancia mínima</span><span class="result-value">${formatDistances(minDist)}</span>`;
+    resMax.innerHTML  = `<span class="result-label">🔸 Distancia máxima</span><span class="result-value">${formatDistances(maxDist)}</span>`;
     resMax.style.display = "flex";
   }
 
@@ -406,7 +389,7 @@ document.addEventListener("DOMContentLoaded", () => {
   populateModels();
 });
 
-function updateScreenDiagram(widthM, heightM, displayUnit) {
+function updateScreenDiagram(widthM, heightM) {
   const rect    = document.getElementById("screenRect");
   const diagram = document.getElementById("screenDiagram");
   const stats   = document.getElementById("screenStats");
@@ -451,7 +434,8 @@ function updateScreenDiagram(widthM, heightM, displayUnit) {
   const heightLabel = document.getElementById("heightLabel");
   if (widthLabel) {
     widthLabel.setAttribute("x", x + (svgW / 2));
-    widthLabel.textContent = formatLengthForUnit(widthM, displayUnit);
+    widthLabel.textContent =
+      `${widthM.toFixed(2)} m (${(widthM / METERS_TO_FEET).toFixed(1)} ft)`;
   }
   if (heightLabel) {
     const labelX = x + svgW + 25;
@@ -459,18 +443,18 @@ function updateScreenDiagram(widthM, heightM, displayUnit) {
     heightLabel.setAttribute("x", labelX);
     heightLabel.setAttribute("y", labelY);
     heightLabel.setAttribute("transform", `rotate(90, ${labelX}, ${labelY})`);
-    heightLabel.textContent = formatLengthForUnit(heightM, displayUnit);
+    heightLabel.textContent =
+      `${heightM.toFixed(2)} m (${(heightM / METERS_TO_FEET).toFixed(1)} ft)`;
   }
 
   const area = widthM * heightM;
   const diagonalM = Math.sqrt((widthM * widthM) + (heightM * heightM));
-  const areaDisplay = convertAreaFromMeters(area, displayUnit);
-  const areaUnit = (UNIT_META[displayUnit] || UNIT_META.m).area;
+  const diagonalIn = diagonalM / METERS_TO_INCHES;
   stats.innerHTML = `
-    <span>Ancho: <strong>${formatLengthForUnit(widthM, displayUnit)}</strong></span>
-    <span>Alto: <strong>${formatLengthForUnit(heightM, displayUnit)}</strong></span>
-    <span>Diagonal: <strong>${formatLengthForUnit(diagonalM, displayUnit)}</strong></span>
-    <span>Área: <strong>${areaDisplay.toFixed(2)} ${areaUnit}</strong></span>
+    <span>Ancho: <strong>${widthM.toFixed(2)} m</strong></span>
+    <span>Alto: <strong>${heightM.toFixed(2)} m</strong></span>
+    <span>Diagonal: <strong>${diagonalIn.toFixed(0)} in</strong></span>
+    <span>Área: <strong>${area.toFixed(2)} m²</strong></span>
   `;
 
   diagram.style.display = "block";
