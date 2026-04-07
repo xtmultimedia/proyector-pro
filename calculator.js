@@ -55,34 +55,6 @@ const calculationState = {
   zoomPercent: 50
 };
 
-function applyMobileSingleScreenFit() {
-  const card = document.querySelector(".card");
-  const footer = document.querySelector("footer");
-  if (!card) return;
-
-  if (window.innerWidth > 480) {
-    document.body.classList.remove("mobile-fit");
-    card.style.transform = "";
-    card.style.transformOrigin = "";
-    card.style.marginTop = "";
-    return;
-  }
-
-  document.body.classList.add("mobile-fit");
-
-  // Measure at natural size before applying scale.
-  card.style.transform = "scale(1)";
-  card.style.transformOrigin = "top center";
-  card.style.marginTop = "0";
-
-  const footerHeight = footer ? footer.offsetHeight : 0;
-  const availableHeight = window.innerHeight - footerHeight - 10;
-  const contentHeight = card.scrollHeight;
-  const scale = Math.min(1, availableHeight / Math.max(contentHeight, 1));
-
-  card.style.transform = `scale(${scale.toFixed(3)})`;
-}
-
 // ── Conversiones de unidad ────────────────────────────────────────────────────
 
 /** Convierte un valor de cualquier unidad a metros */
@@ -412,7 +384,6 @@ function calculate() {
 
   // Actualizar diagrama
   renderZoomState("calculate");
-  applyMobileSingleScreenFit();
 }
 
 function setupEventListeners() {
@@ -433,8 +404,6 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("diag-unit").value = "m";
   setupEventListeners();
   populateModels();
-  applyMobileSingleScreenFit();
-  window.addEventListener("resize", applyMobileSingleScreenFit);
 });
 
 function updateScreenDiagram(widthM, heightM, displayUnit) {
