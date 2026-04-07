@@ -106,6 +106,11 @@
         <span id="zoom-value">50%</span>
       </div>
       <input id="zoom-slider" type="range" min="0" max="100" step="1" value="50" />
+      <div class="zoom-scale">
+        <span>Wide</span>
+        <span id="zoom-optical">1.00x</span>
+        <span>Tele</span>
+      </div>
       <p class="zoom-hint" id="zoom-hint">Ajusta la posición entre distancia mínima y máxima.</p>
     </div>
 
@@ -153,7 +158,16 @@
     <div class="nits-result" id="nitsResult" style="display:none;">
       <h3>💡 Luminancia estimada</h3>
       <div class="nits-value" id="nitsValue"></div>
+      <div class="nits-bar-wrap">
+        <div class="nits-bar-track">
+          <span class="nits-bar-segment low"></span>
+          <span class="nits-bar-segment mid"></span>
+          <span class="nits-bar-segment high"></span>
+          <span class="nits-bar-marker" id="nitsMarker"></span>
+        </div>
+      </div>
       <div class="nits-level" id="nitsLevel"></div>
+      <p class="nits-extra" id="nitsExtra"></p>
       <p class="nits-formula">Fórmula: Nits = Lúmenes ÷ Área (m²)</p>
     </div>
   </div>

@@ -39,7 +39,10 @@ const calculationState = {
   isFixed: true,
   widthRaw: 0,
   widthUnit: "m",
-  lens: null
+  lens: null,
+  widthM: 0,
+  heightM: 0,
+  baseLumens: 0
 };
 
 // ── Conversiones de unidad ────────────────────────────────────────────────────
@@ -182,28 +185,46 @@ function renderZoomState() {
   const slider = document.getElementById("zoom-slider");
   const zoomValue = document.getElementById("zoom-value");
   const zoomHint = document.getElementById("zoom-hint");
+  const zoomOptical = document.getElementById("zoom-optical");
   const resNote = document.getElementById("res-note");
 
-  if (!slider || !zoomValue || !zoomHint || !resNote || !calculationState.lens) return;
+  if (!slider || !zoomValue || !zoomHint || !zoomOptical || !resNote || !calculationState.lens) return;
 
   let zoomPercent = parseInt(slider.value, 10);
   if (Number.isNaN(zoomPercent)) zoomPercent = 50;
 
   let effectiveDist = getEffectiveDistance(calculationState.minDist, calculationState.maxDist, zoomPercent);
+  let normalized = calculationState.maxDist === calculationState.minDist
+    ? 0
+    : (effectiveDist - calculationState.minDist) / (calculationState.maxDist - calculationState.minDist);
+
   if (calculationState.isFixed) {
     zoomPercent = 100;
     effectiveDist = calculationState.minDist;
+    normalized = 0;
   }
 
+  const effectiveThrow = calculationState.widthM > 0
+    ? effectiveDist / calculationState.widthM
+    : calculationState.lens.min;
+  const zoomOpticalFactor = calculationState.lens.min > 0
+    ? effectiveThrow / calculationState.lens.min
+    : 1;
+  const lumensDrop = 0.24; // Tele suele perder luminosidad respecto a Wide.
+  const effectiveLumens = calculationState.baseLumens * (1 - (lumensDrop * normalized));
+  const dynamicNits = calculateNits(effectiveLumens, calculationState.widthM, calculationState.heightM);
+
   zoomValue.textContent = `${zoomPercent}%`;
+  zoomOptical.textContent = `${zoomOpticalFactor.toFixed(2)}x`;
   zoomHint.textContent = calculationState.isFixed
     ? "Lente fijo: la distancia no varía con zoom."
-    : `Distancia efectiva: ${effectiveDist.toFixed(2)} m`;
+    : `Distancia efectiva: ${effectiveDist.toFixed(2)} m · Throw: ${effectiveThrow.toFixed(2)}:1`;
 
   resNote.textContent =
-    `Pantalla: ${calculationState.widthRaw} ${calculationState.widthUnit} de ancho · Lente: ${calculationState.lens.model} (${calculationState.lens.min}${calculationState.isFixed ? "" : "–" + calculationState.lens.max}:1) · Zoom: ${zoomPercent}%`;
+    `Pantalla: ${calculationState.widthRaw} ${calculationState.widthUnit} de ancho · Lente: ${calculationState.lens.model} (${calculationState.lens.min}${calculationState.isFixed ? "" : "–" + calculationState.lens.max}:1) · Zoom: ${zoomPercent}% · Lúmenes efectivos: ${Math.round(effectiveLumens)} lm`;
 
   updateDiagram(calculationState.minDist, calculationState.maxDist, calculationState.isFixed, effectiveDist);
+  updateNitsResult(dynamicNits, effectiveLumens, calculationState.baseLumens);
 }
 
 function getScreenHeight(widthMeters, aspectRatio) {
@@ -289,6 +310,9 @@ function calculate() {
   calculationState.widthRaw = widthRaw;
   calculationState.widthUnit = widthUnit;
   calculationState.lens = lens;
+  calculationState.widthM = widthM;
+  calculationState.heightM = heightM;
+  calculationState.baseLumens = lumens;
 
   resNote.textContent = "";
 
@@ -296,9 +320,6 @@ function calculate() {
   renderZoomState();
 
   updateScreenDiagram(widthM, heightM);
-
-  const nits = calculateNits(lumens, widthM, heightM);
-  updateNitsResult(nits);
 }
 
 function setupEventListeners() {
@@ -379,20 +400,25 @@ function updateScreenDiagram(widthM, heightM) {
   }
 
   const area = widthM * heightM;
+  const diagonalM = Math.sqrt((widthM * widthM) + (heightM * heightM));
+  const diagonalIn = diagonalM / METERS_TO_INCHES;
   stats.innerHTML = `
     <span>Ancho: <strong>${widthM.toFixed(2)} m</strong></span>
     <span>Alto: <strong>${heightM.toFixed(2)} m</strong></span>
+    <span>Diagonal: <strong>${diagonalIn.toFixed(0)} in</strong></span>
     <span>Área: <strong>${area.toFixed(2)} m²</strong></span>
   `;
 
   diagram.style.display = "block";
 }
 
-function updateNitsResult(nits) {
+function updateNitsResult(nits, effectiveLumens, baseLumens) {
   const container = document.getElementById("nitsResult");
   const valueEl   = document.getElementById("nitsValue");
   const levelEl   = document.getElementById("nitsLevel");
-  if (!container || !valueEl || !levelEl) return;
+  const extraEl   = document.getElementById("nitsExtra");
+  const markerEl  = document.getElementById("nitsMarker");
+  if (!container || !valueEl || !levelEl || !extraEl || !markerEl) return;
 
   const level = getBrightnessLevel(nits);
 
@@ -401,5 +427,10 @@ function updateNitsResult(nits) {
     `<span class="nits-unit"> (cd/m²)</span>`;
 
   levelEl.innerHTML = `<span style="color:${level.color}">${level.label}</span>`;
+  extraEl.textContent =
+    `Lúmenes base: ${Math.round(baseLumens || 0)} lm · Lúmenes efectivos: ${Math.round(effectiveLumens || 0)} lm`;
+
+  const markerPosition = Math.min(Math.max((nits / 600) * 100, 0), 100);
+  markerEl.style.left = `${markerPosition}%`;
   container.style.display = "block";
 }
