@@ -46,6 +46,20 @@ body {
   letter-spacing: 0.5px;
 }
 
+.header-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.header-thumb {
+  width: 38px;
+  height: 24px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 2px;
+}
+
 .header p {
   font-size: 0.85rem;
   opacity: 0.85;
@@ -224,6 +238,13 @@ footer {
 
 .input-row input { flex: 1; }
 
+#lumens[readonly] {
+  background: #edf2fb;
+  color: #38598b;
+  border-color: #9bb6dc;
+  cursor: not-allowed;
+}
+
 .input-suffix {
   font-weight: 600;
   color: #003087;
@@ -280,3 +301,42 @@ footer {
 .nits-level { font-size: 0.95rem; margin-bottom: 0.5rem; }
 
 .nits-formula { font-size: 0.78rem; color: #888; }
+
+/* Zoom de lente */
+.zoom-control {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: #f4f8ff;
+  border: 1px solid #cfdcf0;
+  border-radius: 8px;
+}
+
+.zoom-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.zoom-head label {
+  margin-bottom: 0;
+  color: #003087;
+}
+
+#zoom-value {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #003087;
+}
+
+#zoom-slider {
+  width: 100%;
+  margin: 0;
+  accent-color: #003087;
+}
+
+.zoom-hint {
+  margin-top: 0.5rem;
+  font-size: 0.78rem;
+  color: #56657a;
+}

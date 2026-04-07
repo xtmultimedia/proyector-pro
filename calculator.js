@@ -33,6 +33,15 @@ const SVG_MAX_HEIGHT = 150;
 const METERS_TO_FEET = 0.3048;
 const METERS_TO_INCHES = 0.0254;
 
+const calculationState = {
+  minDist: 0,
+  maxDist: 0,
+  isFixed: true,
+  widthRaw: 0,
+  widthUnit: "m",
+  lens: null
+};
+
 // ── Conversiones de unidad ────────────────────────────────────────────────────
 
 /** Convierte un valor de cualquier unidad a metros */
@@ -97,7 +106,8 @@ function updateLenses() {
 }
 
 function updateLumens(modelKey) {
-  const lumens = PROJECTORS[modelKey].lumens;
+  const projector = PROJECTORS[modelKey];
+  const lumens = projector && Number.isFinite(projector.lumens) ? projector.lumens : 8000;
   const el = document.getElementById("lumens");
   if (el) el.value = lumens;
 }
@@ -139,15 +149,61 @@ function calcWidthFromDiagonal() {
 // ── Diagrama SVG ──────────────────────────────────────────────────────────────
 
 /** Actualiza el diagrama SVG con la distancia calculada */
-function updateDiagram(minDist, maxDist, isFixed) {
+function updateDiagram(minDist, maxDist, isFixed, effectiveDist) {
   const wrap = document.getElementById("diagram-wrap");
   wrap.style.display = "block";
 
-  const distLabel = isFixed
-    ? `${minDist.toFixed(2)} m`
-    : `${minDist.toFixed(2)} m – ${maxDist.toFixed(2)} m`;
+  const distLabel = `${effectiveDist.toFixed(2)} m`;
+
+  const minX = 250;
+  const maxX = 432;
+  const interpolation = isFixed || maxDist === minDist
+    ? 1
+    : (effectiveDist - minDist) / (maxDist - minDist);
+  const screenX = minX + ((maxX - minX) * Math.min(Math.max(interpolation, 0), 1));
+
+  const distLine = document.getElementById("dist-line");
+  const screenRect = document.getElementById("distance-screen");
+  const screenLabel = document.getElementById("distance-screen-label");
+
+  if (distLine) distLine.setAttribute("x2", screenX);
+  if (screenRect) screenRect.setAttribute("x", screenX);
+  if (screenLabel) screenLabel.setAttribute("x", Math.min(screenX + 30, 465));
 
   document.getElementById("svg-dist-label").textContent = distLabel;
+}
+
+function getEffectiveDistance(minDist, maxDist, zoomPercent) {
+  if (maxDist <= minDist) return minDist;
+  return minDist + ((zoomPercent / 100) * (maxDist - minDist));
+}
+
+function renderZoomState() {
+  const slider = document.getElementById("zoom-slider");
+  const zoomValue = document.getElementById("zoom-value");
+  const zoomHint = document.getElementById("zoom-hint");
+  const resNote = document.getElementById("res-note");
+
+  if (!slider || !zoomValue || !zoomHint || !resNote || !calculationState.lens) return;
+
+  let zoomPercent = parseInt(slider.value, 10);
+  if (Number.isNaN(zoomPercent)) zoomPercent = 50;
+
+  let effectiveDist = getEffectiveDistance(calculationState.minDist, calculationState.maxDist, zoomPercent);
+  if (calculationState.isFixed) {
+    zoomPercent = 100;
+    effectiveDist = calculationState.minDist;
+  }
+
+  zoomValue.textContent = `${zoomPercent}%`;
+  zoomHint.textContent = calculationState.isFixed
+    ? "Lente fijo: la distancia no varía con zoom."
+    : `Distancia efectiva: ${effectiveDist.toFixed(2)} m`;
+
+  resNote.textContent =
+    `Pantalla: ${calculationState.widthRaw} ${calculationState.widthUnit} de ancho · Lente: ${calculationState.lens.model} (${calculationState.lens.min}${calculationState.isFixed ? "" : "–" + calculationState.lens.max}:1) · Zoom: ${zoomPercent}%`;
+
+  updateDiagram(calculationState.minDist, calculationState.maxDist, calculationState.isFixed, effectiveDist);
 }
 
 function getScreenHeight(widthMeters, aspectRatio) {
@@ -209,6 +265,8 @@ function calculate() {
   const resMin  = document.getElementById("res-min");
   const resMax  = document.getElementById("res-max");
   const resNote = document.getElementById("res-note");
+  const zoomControl = document.getElementById("zoom-control");
+  const zoomSlider = document.getElementById("zoom-slider");
 
   if (isFixed) {
     resMin.innerHTML  = `<span class="result-label">Distancia fija</span><span class="result-value">${formatDistances(minDist)}</span>`;
@@ -219,11 +277,23 @@ function calculate() {
     resMax.style.display = "flex";
   }
 
-  resNote.textContent =
-    `Pantalla: ${widthRaw} ${widthUnit} de ancho · Lente: ${lens.model} (${lens.min}${isFixed ? "" : "–" + lens.max}:1)`;
+  if (zoomControl && zoomSlider) {
+    zoomControl.style.display = "block";
+    zoomSlider.disabled = isFixed;
+    zoomSlider.value = isFixed ? "100" : "50";
+  }
+
+  calculationState.minDist = minDist;
+  calculationState.maxDist = maxDist;
+  calculationState.isFixed = isFixed;
+  calculationState.widthRaw = widthRaw;
+  calculationState.widthUnit = widthUnit;
+  calculationState.lens = lens;
+
+  resNote.textContent = "";
 
   // Actualizar diagrama
-  updateDiagram(minDist, maxDist, isFixed);
+  renderZoomState();
 
   updateScreenDiagram(widthM, heightM);
 
@@ -233,16 +303,19 @@ function calculate() {
 
 function setupEventListeners() {
   document.getElementById("model").addEventListener("change", updateLenses);
+  document.getElementById("unit").addEventListener("change", calcWidthFromDiagonal);
   document.getElementById("diagonal").addEventListener("input", calcWidthFromDiagonal);
   document.getElementById("diag-unit").addEventListener("change", calcWidthFromDiagonal);
   document.getElementById("aspect").addEventListener("change", calcWidthFromDiagonal);
+  document.getElementById("zoom-slider").addEventListener("input", renderZoomState);
   document.getElementById("btn-calculate").addEventListener("click", calculate);
 }
 
 // ── Inicialización ────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
-  // Este flujo queda optimizado para uso en metros.
+  // Default en metros con opción de cambiar a pies/pulgadas.
   document.getElementById("unit").value = "m";
+  document.getElementById("diag-unit").value = "m";
   setupEventListeners();
   populateModels();
 });
