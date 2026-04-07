@@ -8,6 +8,7 @@
 const PROJECTORS = {
   "L1405U": {
     name: "Epson Pro L1405U",
+    lumens: 8000,  // Lúmenes ANSI del modelo
     lenses: [
       { model: "ELPLM08", name: "Estándar",    min: 1.57, max: 2.56 },
       { model: "ELPLX01", name: "Ultra Corto", min: 0.35, max: 0.35 },
@@ -78,6 +79,37 @@ function updateLenses() {
     opt.textContent = `${lens.model} — ${lens.name} (${ratioLabel})`;
     lensSelect.appendChild(opt);
   });
+
+  // Actualizar el input de lúmenes con el valor sugerido del modelo
+  updateLumens(modelKey);
+}
+
+/** Actualiza el input de lúmenes con el valor sugerido según el modelo */
+function updateLumens(modelKey) {
+  const lumens = PROJECTORS[modelKey].lumens;
+  document.getElementById('lumens').value = lumens;
+}
+
+// ── Funciones de pantalla y luminancia ───────────────────────────────────────
+
+/** Calcula el alto de pantalla según la relación de aspecto y el ancho en metros */
+function getScreenHeight(widthMeters, aspectRatio) {
+  const ratios = { "16:9": 9/16, "4:3": 3/4, "16:10": 10/16 };
+  return widthMeters * (ratios[aspectRatio] || 9/16);
+}
+
+/** Calcula la luminancia en nits: lúmenes dividido entre el área de pantalla */
+function calculateNits(lumens, widthM, heightM) {
+  const area = widthM * heightM;
+  return area > 0 ? lumens / area : 0;
+}
+
+/** Devuelve el nivel de brillo con color y texto descriptivo según los nits */
+function getBrightnessLevel(nits) {
+  if (nits >= 500) return { color: "#22c55e", label: "🟢 Excelente — apto para sala con luz ambiente" };
+  if (nits >= 200) return { color: "#eab308", label: "🟡 Bueno — sala semi-controlada" };
+  if (nits >= 100) return { color: "#f97316", label: "🟠 Aceptable — sala oscura recomendada" };
+  return               { color: "#ef4444", label: "🔴 Bajo — requiere sala completamente oscura" };
 }
 
 // ── Cálculo por diagonal ──────────────────────────────────────────────────────
@@ -136,6 +168,8 @@ function calculate() {
   const lensIndex  = parseInt(document.getElementById("lens").value, 10);
   const widthRaw   = parseFloat(document.getElementById("width").value);
   const widthUnit  = document.getElementById("unit").value;
+  const lumens     = parseFloat(document.getElementById("lumens").value) || 0;
+  const aspectRatio = document.getElementById("aspect").value;
 
   // Validación
   if (isNaN(widthRaw) || widthRaw <= 0) {
@@ -145,11 +179,12 @@ function calculate() {
 
   const lens    = PROJECTORS[modelKey].lenses[lensIndex];
   const widthM  = toMeters(widthRaw, widthUnit);
+  const heightM = getScreenHeight(widthM, aspectRatio);
   const minDist = lens.min * widthM;
   const maxDist = lens.max * widthM;
   const isFixed = lens.min === lens.max;
 
-  // Mostrar resultados
+  // Mostrar resultados de distancia
   const resultDiv = document.getElementById("result");
   resultDiv.style.display = "block";
 
@@ -169,8 +204,68 @@ function calculate() {
   resNote.textContent =
     `Pantalla: ${widthRaw} ${widthUnit} de ancho · Lente: ${lens.model} (${lens.min}${isFixed ? "" : "–" + lens.max}:1)`;
 
-  // Actualizar diagrama
+  // Actualizar diagrama de distancia
   updateDiagram(minDist, maxDist, isFixed);
+
+  // Actualizar gráfico de pantalla
+  updateScreenDiagram(widthM, heightM);
+
+  // Calcular y mostrar luminancia
+  const nits = calculateNits(lumens, widthM, heightM);
+  updateNitsResult(nits, lumens, widthM * heightM);
+}
+
+// ── Actualización del gráfico de pantalla ─────────────────────────────────────
+
+/** Actualiza el SVG proporcional de pantalla con sus dimensiones en metros y pies */
+function updateScreenDiagram(widthM, heightM) {
+  const rect    = document.getElementById('screenRect');
+  const diagram = document.getElementById('screenDiagram');
+  const stats   = document.getElementById('screenStats');
+
+  // Calcular proporciones dentro del viewBox (300×200)
+  const maxW = 240, maxH = 150;
+  const aspect = widthM / heightM;
+  let svgW, svgH;
+  if (aspect >= maxW / maxH) {
+    svgW = maxW; svgH = maxW / aspect;
+  } else {
+    svgH = maxH; svgW = maxH * aspect;
+  }
+  const x = (300 - svgW) / 2;
+  const y = (170 - svgH) / 2;
+
+  rect.setAttribute('x', x);
+  rect.setAttribute('y', y);
+  rect.setAttribute('width', svgW);
+  rect.setAttribute('height', svgH);
+
+  // Etiquetas de dimensiones
+  document.getElementById('widthLabel').textContent =
+    widthM.toFixed(2) + ' m  (' + (widthM / 0.3048).toFixed(1) + ' ft)';
+  document.getElementById('heightLabel').textContent =
+    heightM.toFixed(2) + ' m  (' + (heightM / 0.3048).toFixed(1) + ' ft)';
+
+  const area = (widthM * heightM).toFixed(2);
+  stats.innerHTML = `
+    <span>Ancho: <strong>${widthM.toFixed(2)} m</strong></span>
+    <span>Alto: <strong>${heightM.toFixed(2)} m</strong></span>
+    <span>Área: <strong>${area} m²</strong></span>
+  `;
+
+  diagram.style.display = 'block';
+}
+
+/** Actualiza el panel de luminancia con el valor en nits y su nivel de calidad */
+function updateNitsResult(nits, lumens, area) {
+  const level = getBrightnessLevel(nits);
+  const container = document.getElementById('nitsResult');
+  document.getElementById('nitsValue').innerHTML =
+    `<span style="color:${level.color}; font-size:2rem; font-weight:700">${Math.round(nits)} nits</span>` +
+    `<span style="color:#666; font-size:0.9rem"> (cd/m²)</span>`;
+  document.getElementById('nitsLevel').innerHTML =
+    `<span style="color:${level.color}">${level.label}</span>`;
+  container.style.display = 'block';
 }
 
 // ── Inicialización ────────────────────────────────────────────────────────────
