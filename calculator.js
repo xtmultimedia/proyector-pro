@@ -8,6 +8,7 @@
 const PROJECTORS = {
   "L1405U": {
     name: "Epson Pro L1405U",
+    lumens: 8000,
     lenses: [
       { model: "ELPLM08", name: "Estándar",    min: 1.57, max: 2.56 },
       { model: "ELPLX01", name: "Ultra Corto", min: 0.35, max: 0.35 },
@@ -26,18 +27,24 @@ const ASPECT_RATIOS = {
   "16:10": 16 / 10
 };
 
+const SVG_MAX_WIDTH  = 240;
+const SVG_MAX_HEIGHT = 150;
+
+const METERS_TO_FEET = 0.3048;
+const METERS_TO_INCHES = 0.0254;
+
 // ── Conversiones de unidad ────────────────────────────────────────────────────
 
 /** Convierte un valor de cualquier unidad a metros */
 function toMeters(value, unit) {
-  if (unit === "ft") return value * 0.3048;
-  if (unit === "in") return value * 0.0254;
+  if (unit === "ft") return value * METERS_TO_FEET;
+  if (unit === "in") return value * METERS_TO_INCHES;
   return value; // ya en metros
 }
 
 /** Formatea una distancia en metros con dos representaciones: m y ft */
 function formatDistances(meters) {
-  const ft = meters / 0.3048;
+  const ft = meters / METERS_TO_FEET;
   return `${meters.toFixed(2)} m  /  ${ft.toFixed(2)} ft`;
 }
 
@@ -56,7 +63,10 @@ function populateModels() {
   });
 
   // Cargar lentes del primer modelo por defecto
-  updateLenses();
+  if (modelSelect.options.length > 0) {
+    modelSelect.selectedIndex = 0;
+    updateLenses();
+  }
 }
 
 /** Actualiza el selector de lentes según el modelo seleccionado */
@@ -66,6 +76,10 @@ function updateLenses() {
   const lensSelect = document.getElementById("lens");
 
   lensSelect.innerHTML = "";
+
+  if (!projector || !Array.isArray(projector.lenses) || projector.lenses.length === 0) {
+    return;
+  }
 
   projector.lenses.forEach((lens, index) => {
     const opt = document.createElement("option");
@@ -78,6 +92,14 @@ function updateLenses() {
     opt.textContent = `${lens.model} — ${lens.name} (${ratioLabel})`;
     lensSelect.appendChild(opt);
   });
+
+  updateLumens(modelKey);
+}
+
+function updateLumens(modelKey) {
+  const lumens = PROJECTORS[modelKey].lumens;
+  const el = document.getElementById("lumens");
+  if (el) el.value = lumens;
 }
 
 // ── Cálculo por diagonal ──────────────────────────────────────────────────────
@@ -104,9 +126,9 @@ function calcWidthFromDiagonal() {
   // Convertir ancho al sistema de unidades del campo de ancho
   let displayWidth;
   if (widthUnit === "ft") {
-    displayWidth = (widthM / 0.3048).toFixed(3);
+    displayWidth = (widthM / METERS_TO_FEET).toFixed(3);
   } else if (widthUnit === "in") {
-    displayWidth = (widthM / 0.0254).toFixed(2);
+    displayWidth = (widthM / METERS_TO_INCHES).toFixed(2);
   } else {
     displayWidth = widthM.toFixed(3);
   }
@@ -128,6 +150,23 @@ function updateDiagram(minDist, maxDist, isFixed) {
   document.getElementById("svg-dist-label").textContent = distLabel;
 }
 
+function getScreenHeight(widthMeters, aspectRatio) {
+  const ratios = { "16:9": 9 / 16, "4:3": 3 / 4, "16:10": 10 / 16 };
+  return widthMeters * (ratios[aspectRatio] || 9 / 16);
+}
+
+function calculateNits(lumens, widthM, heightM) {
+  const area = widthM * heightM;
+  return area > 0 ? lumens / area : 0;
+}
+
+function getBrightnessLevel(nits) {
+  if (nits >= 500) return { color: "#22c55e", label: "🟢 Excelente — apto para sala con luz ambiente" };
+  if (nits >= 200) return { color: "#eab308", label: "🟡 Bueno — sala semi-controlada" };
+  if (nits >= 100) return { color: "#f97316", label: "🟠 Aceptable — sala oscura recomendada" };
+  return               { color: "#ef4444", label: "🔴 Bajo — requiere sala completamente oscura" };
+}
+
 // ── Función principal de cálculo ──────────────────────────────────────────────
 
 function calculate() {
@@ -136,6 +175,8 @@ function calculate() {
   const lensIndex  = parseInt(document.getElementById("lens").value, 10);
   const widthRaw   = parseFloat(document.getElementById("width").value);
   const widthUnit  = document.getElementById("unit").value;
+  const lumens = parseFloat(document.getElementById("lumens").value) || 0;
+  const aspectRatio = document.getElementById("aspect").value;
 
   // Validación
   if (isNaN(widthRaw) || widthRaw <= 0) {
@@ -143,8 +184,20 @@ function calculate() {
     return;
   }
 
-  const lens    = PROJECTORS[modelKey].lenses[lensIndex];
+  const projector = PROJECTORS[modelKey];
+  if (!projector || !Array.isArray(projector.lenses) || projector.lenses.length === 0) {
+    alert("No hay lentes disponibles para el modelo seleccionado.");
+    return;
+  }
+
+  const lens = projector.lenses[lensIndex];
+  if (!lens) {
+    alert("Selecciona un lente válido para continuar.");
+    return;
+  }
+
   const widthM  = toMeters(widthRaw, widthUnit);
+  const heightM = getScreenHeight(widthM, aspectRatio);
   const minDist = lens.min * widthM;
   const maxDist = lens.max * widthM;
   const isFixed = lens.min === lens.max;
@@ -171,9 +224,109 @@ function calculate() {
 
   // Actualizar diagrama
   updateDiagram(minDist, maxDist, isFixed);
+
+  updateScreenDiagram(widthM, heightM);
+
+  const nits = calculateNits(lumens, widthM, heightM);
+  updateNitsResult(nits);
+}
+
+function setupEventListeners() {
+  document.getElementById("model").addEventListener("change", updateLenses);
+  document.getElementById("diagonal").addEventListener("input", calcWidthFromDiagonal);
+  document.getElementById("diag-unit").addEventListener("change", calcWidthFromDiagonal);
+  document.getElementById("aspect").addEventListener("change", calcWidthFromDiagonal);
+  document.getElementById("btn-calculate").addEventListener("click", calculate);
 }
 
 // ── Inicialización ────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
+  // Este flujo queda optimizado para uso en metros.
+  document.getElementById("unit").value = "m";
+  setupEventListeners();
   populateModels();
 });
+
+function updateScreenDiagram(widthM, heightM) {
+  const rect    = document.getElementById("screenRect");
+  const diagram = document.getElementById("screenDiagram");
+  const stats   = document.getElementById("screenStats");
+
+  if (!rect || !diagram || !stats) return;
+
+  const aspect = widthM / heightM;
+  let svgW;
+  let svgH;
+
+  if (aspect >= SVG_MAX_WIDTH / SVG_MAX_HEIGHT) {
+    svgW = SVG_MAX_WIDTH;
+    svgH = SVG_MAX_WIDTH / aspect;
+  } else {
+    svgH = SVG_MAX_HEIGHT;
+    svgW = SVG_MAX_HEIGHT * aspect;
+  }
+
+  const x = (300 - svgW) / 2;
+  const y = (170 - svgH) / 2;
+
+  rect.setAttribute("x", x);
+  rect.setAttribute("y", y);
+  rect.setAttribute("width", svgW);
+  rect.setAttribute("height", svgH);
+
+  const widthLine = document.getElementById("widthLine");
+  const heightLine = document.getElementById("heightLine");
+  if (widthLine) {
+    widthLine.setAttribute("x1", x);
+    widthLine.setAttribute("x2", x + svgW);
+  }
+  if (heightLine) {
+    const dimLineX = x + svgW + 15;
+    heightLine.setAttribute("x1", dimLineX);
+    heightLine.setAttribute("x2", dimLineX);
+    heightLine.setAttribute("y1", y);
+    heightLine.setAttribute("y2", y + svgH);
+  }
+
+  const widthLabel = document.getElementById("widthLabel");
+  const heightLabel = document.getElementById("heightLabel");
+  if (widthLabel) {
+    widthLabel.setAttribute("x", x + (svgW / 2));
+    widthLabel.textContent =
+      `${widthM.toFixed(2)} m (${(widthM / METERS_TO_FEET).toFixed(1)} ft)`;
+  }
+  if (heightLabel) {
+    const labelX = x + svgW + 25;
+    const labelY = y + (svgH / 2);
+    heightLabel.setAttribute("x", labelX);
+    heightLabel.setAttribute("y", labelY);
+    heightLabel.setAttribute("transform", `rotate(90, ${labelX}, ${labelY})`);
+    heightLabel.textContent =
+      `${heightM.toFixed(2)} m (${(heightM / METERS_TO_FEET).toFixed(1)} ft)`;
+  }
+
+  const area = widthM * heightM;
+  stats.innerHTML = `
+    <span>Ancho: <strong>${widthM.toFixed(2)} m</strong></span>
+    <span>Alto: <strong>${heightM.toFixed(2)} m</strong></span>
+    <span>Área: <strong>${area.toFixed(2)} m²</strong></span>
+  `;
+
+  diagram.style.display = "block";
+}
+
+function updateNitsResult(nits) {
+  const container = document.getElementById("nitsResult");
+  const valueEl   = document.getElementById("nitsValue");
+  const levelEl   = document.getElementById("nitsLevel");
+  if (!container || !valueEl || !levelEl) return;
+
+  const level = getBrightnessLevel(nits);
+
+  valueEl.innerHTML =
+    `<span class="nits-number" style="color:${level.color}">${Math.round(nits)} nits</span>` +
+    `<span class="nits-unit"> (cd/m²)</span>`;
+
+  levelEl.innerHTML = `<span style="color:${level.color}">${level.label}</span>`;
+  container.style.display = "block";
+}
