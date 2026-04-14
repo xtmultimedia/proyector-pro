@@ -1,4 +1,4 @@
-# 📽️ PROYECTOR PRO v1
+# 📽️ PROYECTOR PRO v1.2
 
 **Calculadora de Distancias para Proyectores Epson Pro**
 

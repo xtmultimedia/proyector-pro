@@ -16,8 +16,53 @@ const PROJECTORS = {
       { model: "ELPLM09", name: "Medio",       min: 1.44, max: 2.32 },
       { model: "ELPLL08", name: "Largo",       min: 4.21, max: 7.07 },
     ]
+  },
+  "L1505UH": {
+    name: "Epson Pro L1505UH",
+    lumens: 12000,
+    lenses: [
+      { model: "ELPLM15", name: "Estándar",    min: 1.44, max: 2.32 },
+      { model: "ELPLX02", name: "Ultra Corto", min: 0.35, max: 0.35 },
+      { model: "ELPLU04", name: "Corto",       min: 0.65, max: 0.75 },
+      { model: "ELPLW06", name: "Gran Angular", min: 1.04, max: 1.46 },
+      { model: "ELPLM10", name: "Medio",       min: 2.20, max: 3.68 },
+      { model: "ELPLL08", name: "Largo",       min: 4.21, max: 7.07 },
+    ]
+  },
+  "G6800": {
+    name: "Epson PowerLite PRO G6800",
+    lumens: 7000,
+    lenses: [
+      { model: "ELPLU01", name: "Corto Alcance",  min: 0.77, max: 0.93 },
+      { model: "ELPLW04", name: "Gran Angular",   min: 0.95, max: 1.27 },
+      { model: "ELPLM04", name: "Medio",          min: 1.30, max: 1.78 },
+      { model: "ELPLS07", name: "Estándar",       min: 1.44, max: 2.32 },
+      { model: "ELPLL06", name: "Larga Distancia",min: 4.32, max: 7.17 },
+    ]
+  },
+  "G7805": {
+    name: "Epson Pro G7805",
+    lumens: 8000,
+    lenses: [
+      { model: "ELPLM08", name: "Estándar",    min: 1.57, max: 2.56 },
+      { model: "ELPLX01", name: "Ultra Corto", min: 0.35, max: 0.35 },
+      { model: "ELPLU03", name: "Corto",       min: 0.65, max: 0.75 },
+      { model: "ELPLM09", name: "Medio",       min: 1.44, max: 2.32 },
+      { model: "ELPLL08", name: "Largo",       min: 4.21, max: 7.07 },
+    ]
+  },
+  "L25000U": {
+    name: "Epson Pro L25000U",
+    lumens: 25000,
+    lenses: [
+      { model: "ELPLM15", name: "Estándar",    min: 1.44, max: 2.32 },
+      { model: "ELPLX02", name: "Ultra Corto", min: 0.35, max: 0.35 },
+      { model: "ELPLU04", name: "Corto",       min: 0.71, max: 1.02 },
+      { model: "ELPLW06", name: "Gran Angular", min: 1.04, max: 1.46 },
+      { model: "ELPLM10", name: "Medio",       min: 2.20, max: 3.68 },
+      { model: "ELPLL08", name: "Largo",       min: 4.21, max: 7.07 },
+    ]
   }
-  // Aquí se agregarán más modelos en el futuro
 };
 
 // Relaciones de aspecto: proporción ancho/alto
