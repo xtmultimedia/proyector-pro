@@ -36,6 +36,10 @@ Aplicación web gratuita y sin dependencias que calcula la distancia de proyecci
 | Modelo | Estado |
 |---|---|
 | Epson Pro L1405U | ✅ Incluido |
+| Epson Pro L1505UH | ✅ Incluido |
+| Epson PowerLite Pro G6800 | ✅ Incluido |
+| Epson Pro G7805 | ✅ Incluido |
+| Epson Pro L25000U | ✅ Incluido |
 | Más modelos... | 🔜 Próximamente |
 
 ---
@@ -102,6 +106,23 @@ const PROJECTORS = {
 ```
 
 El selector de modelo y la lista de lentes se actualizarán automáticamente.
+
+---
+
+## 📜 Changelog
+
+### v1.2
+- **Nuevos modelos añadidos:** 
+  - `Epson Pro L1505UH` (12,000 lm)
+  - `Epson PowerLite Pro G6800` (7,000 lm)
+  - `Epson Pro G7805` (8,000 lm)
+  - `Epson Pro L25000U` (25,000 lm)
+- Implementación de controles interactivos de zoom y distancia.
+- Diagrama dinámico de dimensiones de pantalla y luminancia (Nits).
+
+### v1.1
+- Soporte inicial para `Epson Pro L1405U`.
+- Motor de cálculo base y diagrama SVG de distancia.
 
 ---
 
